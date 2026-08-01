@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --background: #05070e;
+  --foreground: #f8fbff;
+  --glass: rgba(255, 255, 255, 0.06);
+}
+
+.theme-light {
+  --background: #f5f8ff;
+  --foreground: #060b15;
+  --glass: rgba(10, 13, 20, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.glass {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+}
+
+.section-title {
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.animated-bg {
+  background: radial-gradient(circle at 10% 15%, #0f254c 0%, transparent 45%),
+    radial-gradient(circle at 80% 10%, #1c2f56 0%, transparent 35%),
+    radial-gradient(circle at 60% 70%, #09334a 0%, transparent 45%);
+  animation: glowShift 12s ease-in-out infinite alternate;
+}
+
+@keyframes glowShift {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
