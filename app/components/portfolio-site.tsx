@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import Lenis from "lenis";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { Project } from "@/app/lib/site-data";
 import {
   awards,
   certificates,
-  clientTypes,
   comparisonFeatures,
   faq,
   pricingTiers,
@@ -23,188 +26,316 @@ type GitHubRepo = {
   stargazers_count: number;
 };
 
-const ctaButtons = ["Hire Me", "Get Free Consultation", "Start Your Project", "View Portfolio"];
+type NavItem = { id: string; label: string };
+
+const navItems: NavItem[] = [
+  { id: "hero", label: "Home" },
+  { id: "services", label: "Services" },
+  { id: "work", label: "Work" },
+  { id: "pricing", label: "Pricing" },
+  { id: "proof", label: "Proof" },
+  { id: "contact", label: "Contact" },
+];
+
 const projectFilters = ["All", "AI", "Web", "Automation", "Design"];
 
+function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
+  return (
+    <header className="space-y-3">
+      <p className="text-xs font-medium uppercase tracking-[0.35em] text-cyan-200/80">{eyebrow}</p>
+      <h2 className="text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h2>
+      {description ? <p className="max-w-2xl text-sm text-slate-300 sm:text-base">{description}</p> : null}
+    </header>
+  );
+}
+
+function MagneticButton({ href, children }: { href: string; children: string }) {
+  const ref = useRef<HTMLAnchorElement | null>(null);
+
+  const handleMove = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    const button = ref.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const x = event.clientX - (rect.left + rect.width / 2);
+    const y = event.clientY - (rect.top + rect.height / 2);
+    button.style.transform = `translate(${x * 0.12}px, ${y * 0.12}px)`;
+  };
+
+  return (
+    <a
+      ref={ref}
+      href={href}
+      onMouseMove={handleMove}
+      onMouseLeave={() => {
+        if (ref.current) ref.current.style.transform = "translate(0, 0)";
+      }}
+      className="group relative inline-flex overflow-hidden rounded-full border border-cyan-200/40 bg-cyan-300/10 px-6 py-3 text-sm font-medium text-cyan-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+    >
+      <span className="absolute inset-0 bg-gradient-to-r from-cyan-300/20 to-violet-300/20 opacity-0 transition group-hover:opacity-100" />
+      <span className="relative">{children}</span>
+    </a>
+  );
+}
+
 export function PortfolioSite({ projects, githubRepos }: { projects: Project[]; githubRepos: GitHubRepo[] }) {
+  const [activeSection, setActiveSection] = useState("hero");
   const [filter, setFilter] = useState("All");
-  const [isLight, setIsLight] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 900);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("theme-light", isLight);
-  }, [isLight]);
-
-  useEffect(() => {
-    const updatePointer = (event: MouseEvent) => setPointer({ x: event.clientX, y: event.clientY });
-    window.addEventListener("mousemove", updatePointer);
-    return () => window.removeEventListener("mousemove", updatePointer);
-  }, []);
+  const shouldReduceMotion = useReducedMotion();
 
   const filteredProjects = useMemo(
     () => projects.filter((project) => filter === "All" || project.category === filter),
     [filter, projects],
   );
+  const contactFields = [
+    { id: "projectType", label: "Project Type" },
+    { id: "budget", label: "Budget" },
+    { id: "timeline", label: "Timeline" },
+    { id: "businessName", label: "Business Name" },
+    { id: "email", label: "Email" },
+    { id: "whatsapp", label: "WhatsApp" },
+  ];
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+
+    gsap.registerPlugin(ScrollTrigger);
+    const elements = gsap.utils.toArray<HTMLElement>("[data-reveal]");
+
+    elements.forEach((element) => {
+      gsap.fromTo(
+        element,
+        { y: 28, opacity: 0, filter: "blur(12px)" },
+        {
+          y: 0,
+          opacity: 1,
+          filter: "blur(0px)",
+          duration: 0.9,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: element,
+            start: "top 85%",
+          },
+        },
+      );
+    });
+
+    const lenis = new Lenis({ duration: 1.1, smoothWheel: true, lerp: 0.08 });
+    const raf = (time: number) => {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    };
+    requestAnimationFrame(raf);
+
+    return () => {
+      lenis.destroy();
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    };
+  }, [shouldReduceMotion]);
+
+  useEffect(() => {
+    const sections = navItems
+      .map((item) => document.getElementById(item.id))
+      .filter((section): section is HTMLElement => Boolean(section));
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) setActiveSection(entry.target.id);
+        });
+      },
+      { threshold: 0.45 },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+    const onMove = (event: MouseEvent) => setPointer({ x: event.clientX, y: event.clientY });
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [shouldReduceMotion]);
 
   return (
     <>
-      {loading ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black text-white">
-          <p className="text-sm tracking-[0.3em] text-white/75">VINAY M Y · LOADING EXPERIENCE</p>
-        </div>
-      ) : null}
-      <div
-        className="pointer-events-none fixed z-40 hidden h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl md:block"
-        style={{ transform: `translate(${pointer.x - 80}px, ${pointer.y - 80}px)` }}
-      />
-      <div className="animated-bg fixed inset-0 -z-10" aria-hidden="true" />
+      <a
+        href="#hero"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-slate-900 focus:px-3 focus:py-2"
+      >
+        Skip to content
+      </a>
 
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 text-sm sm:px-6">
-          <p className="font-semibold tracking-[0.3em]">VINAY M Y</p>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Live Available
-            </span>
-            <button
-              className="rounded-full border border-white/20 px-3 py-1"
-              onClick={() => setIsLight((current) => !current)}
-            >
-              {isLight ? "Dark Mode" : "Light Mode"}
-            </button>
-          </div>
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-70"
+        aria-hidden
+        style={{
+          background: `radial-gradient(320px circle at ${pointer.x}px ${pointer.y}px, rgba(0, 245, 255, 0.16), transparent 42%)`,
+        }}
+      />
+      <div className="noise fixed inset-0 z-0 opacity-25" aria-hidden />
+      <div className="mesh-bg fixed inset-0 z-0" aria-hidden />
+
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050816]/70 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-8">
+          <p className="text-sm font-semibold tracking-[0.35em] text-white/90">VINAY M Y</p>
+          <nav aria-label="Primary" className="hidden gap-2 md:flex">
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className={`rounded-full px-4 py-2 text-xs tracking-wide transition ${
+                  activeSection === item.id
+                    ? "bg-white/15 text-white"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300`}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <span className="hidden items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-200 sm:inline-flex">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" /> Available now
+          </span>
+        </div>
+        <div className="h-0.5 w-full bg-white/5">
+          <motion.div
+            className="h-full bg-gradient-to-r from-cyan-300 via-violet-400 to-emerald-300"
+            style={{ transformOrigin: "0% 50%" }}
+            animate={{ scaleX: activeSection === "hero" ? 0.16 : activeSection === "services" ? 0.34 : activeSection === "work" ? 0.55 : activeSection === "pricing" ? 0.73 : activeSection === "proof" ? 0.88 : 1 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          />
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-4 py-10 sm:px-6 sm:py-16">
-        <section className="glass rounded-3xl p-8 sm:p-12">
-          <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-300">Premium Freelance Partner</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
-            AI Full Stack Developer | AI Automation Expert | Web Designer | Freelance Developer
-          </h1>
-          <p className="mt-5 max-w-3xl text-base text-white/80 sm:text-lg">
-            I build beautiful websites, AI-powered applications, business automation systems, and modern digital
-            experiences that help businesses grow.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            {ctaButtons.map((button) => (
-              <a
-                key={button}
-                href="#contact"
-                className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-5 py-2 text-sm font-medium transition hover:bg-cyan-300/20"
-              >
-                {button}
-              </a>
-            ))}
-          </div>
-          <div className="mt-8 grid grid-cols-2 gap-3 text-xs text-white/70 sm:grid-cols-4">
-            <p>100+ Projects Delivered</p>
-            <p>48h Typical Kickoff</p>
-            <p>SEO + Speed Focused</p>
-            <p>Long-Term Support</p>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="section-title">Target Clients</h2>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {clientTypes.map((client) => (
-              <div key={client} className="glass rounded-2xl px-4 py-3 text-sm">
-                {client}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="section-title">Services</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map((service) => (
-              <article key={service.title} className="glass group rounded-2xl p-5">
-                <p className="text-xs uppercase tracking-widest text-cyan-200">{service.category}</p>
-                <h3 className="mt-2 text-lg font-semibold">{service.title}</h3>
-                <p className="mt-2 text-sm text-white/75">{service.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="portfolio">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="section-title">Portfolio</h2>
-            <div className="flex flex-wrap gap-2">
-              {projectFilters.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setFilter(item)}
-                  className={`rounded-full border px-4 py-1 text-sm transition ${
-                    filter === item ? "border-cyan-300 bg-cyan-400/20" : "border-white/20"
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
+      <main className="relative z-10 mx-auto grid w-full max-w-7xl gap-24 px-4 pb-24 pt-10 sm:px-8 sm:pt-16">
+        <section id="hero" className="glass-panel grid gap-10 rounded-[2rem] p-8 md:grid-cols-12 md:p-12" data-reveal>
+          <div className="space-y-6 md:col-span-7">
+            <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-cyan-100">
+              Premium AI Full-Stack Developer
+            </p>
+            <motion.h1
+              className="text-balance text-4xl font-semibold leading-tight tracking-tight text-white sm:text-6xl"
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+            >
+              Building cinematic digital products that convert trust into revenue.
+            </motion.h1>
+            <p className="max-w-xl text-base text-slate-200 sm:text-lg">
+              I craft premium web experiences, AI systems, and business automation platforms with world-class interaction
+              quality and enterprise-grade architecture.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <MagneticButton href="#contact">Start Your Project</MagneticButton>
+              <MagneticButton href="#work">View Case Studies</MagneticButton>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs text-slate-300 sm:grid-cols-4">
+              <p className="glass-chip">100+ launches</p>
+              <p className="glass-chip">95+ Lighthouse</p>
+              <p className="glass-chip">WCAG AA+</p>
+              <p className="glass-chip">48h kickoff</p>
             </div>
           </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {filteredProjects.map((project) => (
-              <article key={project.name} className="glass rounded-2xl p-5">
-                <h3 className="text-xl font-semibold">{project.name}</h3>
-                <p className="mt-3 text-sm text-white/80"><strong>Problem:</strong> {project.problem}</p>
-                <p className="mt-2 text-sm text-white/80"><strong>Solution:</strong> {project.solution}</p>
-                <p className="mt-2 text-sm text-white/80"><strong>Results:</strong> {project.results}</p>
+          <aside className="glass-panel relative rounded-3xl p-6 md:col-span-5">
+            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-violet-400/30 blur-2xl" aria-hidden />
+            <h2 className="text-xl font-semibold text-white">Project Velocity Card</h2>
+            <p className="mt-2 text-sm text-slate-300">Fast turnarounds with premium execution quality.</p>
+            <ul className="mt-6 space-y-3 text-sm text-slate-200">
+              <li className="glass-chip">Design System + Motion Language</li>
+              <li className="glass-chip">SEO + Performance-first delivery</li>
+              <li className="glass-chip">Continuous iteration + reporting</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section id="services" className="space-y-8" data-reveal>
+          <SectionHeading
+            eyebrow="Capabilities"
+            title="Premium services for ambitious teams"
+            description="From conversion-led websites to AI workflows, every engagement is designed for business outcomes."
+          />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {services.slice(0, 9).map((service, index) => (
+              <motion.article
+                key={service.title}
+                whileHover={shouldReduceMotion ? undefined : { y: -6, rotateX: 1.5 }}
+                transition={{ duration: 0.25 }}
+                className="glass-panel rounded-3xl p-6"
+              >
+                <p className="text-xs uppercase tracking-[0.25em] text-cyan-200/80">0{index + 1} · {service.category}</p>
+                <h3 className="mt-3 text-xl font-medium text-white">{service.title}</h3>
+                <p className="mt-3 text-sm text-slate-300">{service.description}</p>
+              </motion.article>
+            ))}
+          </div>
+        </section>
+
+        <section id="work" className="space-y-8" data-reveal>
+          <SectionHeading
+            eyebrow="Case Studies"
+            title="Interactive work showcase"
+            description="Selected projects with measurable business impact and production-ready engineering quality."
+          />
+          <div className="flex flex-wrap gap-2">
+            {projectFilters.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setFilter(item)}
+                className={`rounded-full border px-4 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
+                  filter === item ? "border-cyan-200/60 bg-cyan-300/20 text-white" : "border-white/20 text-slate-300 hover:text-white"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {filteredProjects.slice(0, 6).map((project) => (
+              <article key={project.name} className="glass-panel rounded-3xl p-6">
+                <h3 className="text-2xl font-semibold text-white">{project.name}</h3>
+                <p className="mt-3 text-sm text-slate-300">{project.problem}</p>
+                <p className="mt-2 text-sm text-slate-200">{project.solution}</p>
+                <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm text-emerald-200">{project.results}</p>
                 <p className="mt-3 text-xs text-cyan-200">{project.technologies.join(" • ")}</p>
-                <p className="mt-2 text-xs text-white/70">Gallery: {project.gallery.join(" · ")}</p>
-                <div className="mt-4 flex gap-3 text-sm">
-                  <a href={project.github} target="_blank" rel="noreferrer" className="underline">
-                    GitHub
-                  </a>
-                  <a href={project.demo} className="underline">
-                    Live Demo
-                  </a>
+                <div className="mt-5 flex items-center gap-4 text-sm">
+                  <a className="text-cyan-100 underline decoration-cyan-300/70 underline-offset-4" href={project.github} target="_blank" rel="noreferrer">GitHub</a>
+                  <a className="text-cyan-100 underline decoration-cyan-300/70 underline-offset-4" href={project.demo}>Preview</a>
                 </div>
               </article>
             ))}
           </div>
         </section>
 
-        <section>
-          <h2 className="section-title">Why Hire Me</h2>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {whyHireMe.map((item) => (
-              <div key={item} className="glass rounded-xl px-4 py-3 text-sm">
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="section-title">Pricing</h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-4">
-            {pricingTiers.map((tier) => (
-              <article key={tier.name} className="glass rounded-2xl p-5">
-                <h3 className="text-xl font-semibold">{tier.name}</h3>
-                <p className="mt-1 text-sm text-cyan-200">{tier.idealFor}</p>
-                <p className="mt-3 text-2xl font-semibold">{tier.price}</p>
-                <ul className="mt-3 space-y-1 text-sm text-white/80">
-                  {tier.includes.map((line) => (
-                    <li key={line}>• {line}</li>
+        <section id="pricing" className="space-y-8" data-reveal>
+          <SectionHeading
+            eyebrow="Investment"
+            title="Transparent premium pricing"
+            description="Flexible engagement models tailored for founders, teams, and enterprise operators."
+          />
+          <div className="grid gap-4 xl:grid-cols-4">
+            {pricingTiers.map((tier, index) => (
+              <article key={tier.name} className="glass-panel relative rounded-3xl p-6">
+                {index === 2 ? (
+                  <span className="absolute right-5 top-5 rounded-full bg-violet-300/25 px-3 py-1 text-xs text-violet-100">Popular</span>
+                ) : null}
+                <h3 className="text-2xl font-semibold text-white">{tier.name}</h3>
+                <p className="mt-2 text-sm text-cyan-200">{tier.idealFor}</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{tier.price}</p>
+                <ul className="mt-4 space-y-2 text-sm text-slate-300">
+                  {tier.includes.map((feature) => (
+                    <li key={feature}>• {feature}</li>
                   ))}
                 </ul>
               </article>
             ))}
           </div>
-          <div className="glass mt-4 overflow-x-auto rounded-2xl p-4">
-            <table className="w-full text-left text-sm">
+          <div className="glass-panel overflow-x-auto rounded-3xl p-5">
+            <table className="w-full min-w-[540px] text-left text-sm">
               <thead>
-                <tr className="text-cyan-200">
+                <tr className="text-cyan-100">
                   <th className="pb-3">Feature</th>
                   <th>Basic</th>
                   <th>Standard</th>
@@ -214,11 +345,9 @@ export function PortfolioSite({ projects, githubRepos }: { projects: Project[]; 
               </thead>
               <tbody>
                 {comparisonFeatures.map((row) => (
-                  <tr key={row[0]} className="border-t border-white/10">
+                  <tr key={row[0]} className="border-t border-white/10 text-slate-200">
                     {row.map((cell) => (
-                      <td key={`${row[0]}-${cell}`} className="py-2 pr-2">
-                        {cell}
-                      </td>
+                      <td key={`${row[0]}-${cell}`} className="py-3 pr-2">{cell}</td>
                     ))}
                   </tr>
                 ))}
@@ -227,117 +356,96 @@ export function PortfolioSite({ projects, githubRepos }: { projects: Project[]; 
           </div>
         </section>
 
-        <section>
-          <h2 className="section-title">Testimonials</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {testimonials.map((testimonial) => (
-              <blockquote key={testimonial.name} className="glass rounded-2xl p-5 text-sm text-white/80">
-                “{testimonial.quote}”
-                <footer className="mt-4 text-cyan-200">
-                  {testimonial.name} · {testimonial.role}
-                </footer>
-              </blockquote>
+        <section id="proof" className="grid gap-8 xl:grid-cols-12" data-reveal>
+          <div className="space-y-8 xl:col-span-8">
+            <SectionHeading eyebrow="Trust" title="Social proof that closes high-value clients" />
+            <div className="grid gap-4 md:grid-cols-2">
+              {testimonials.map((testimonial) => (
+                <blockquote key={testimonial.name} className="glass-panel rounded-3xl p-6 text-sm text-slate-200">
+                  “{testimonial.quote}”
+                  <footer className="mt-4 text-cyan-200">{testimonial.name} · {testimonial.role}</footer>
+                </blockquote>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4 xl:col-span-4">
+            {[{ title: "Trust Badges", values: trustBadges }, { title: "Awards", values: awards }, { title: "Certificates", values: certificates }].map((group) => (
+              <article key={group.title} className="glass-panel rounded-3xl p-5">
+                <h3 className="text-lg font-semibold text-white">{group.title}</h3>
+                <ul className="mt-3 space-y-1 text-sm text-slate-300">
+                  {group.values.map((value) => (
+                    <li key={value}>• {value}</li>
+                  ))}
+                </ul>
+              </article>
             ))}
           </div>
         </section>
 
-        <section>
-          <h2 className="section-title">Trust & Authority</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div className="glass rounded-2xl p-5">
-              <h3 className="text-lg font-semibold">Trust Badges</h3>
-              <ul className="mt-3 space-y-1 text-sm text-white/80">{trustBadges.map((item) => <li key={item}>• {item}</li>)}</ul>
-            </div>
-            <div className="glass rounded-2xl p-5">
-              <h3 className="text-lg font-semibold">Awards</h3>
-              <ul className="mt-3 space-y-1 text-sm text-white/80">{awards.map((item) => <li key={item}>• {item}</li>)}</ul>
-            </div>
-            <div className="glass rounded-2xl p-5">
-              <h3 className="text-lg font-semibold">Certificates & Resume</h3>
-              <ul className="mt-3 space-y-1 text-sm text-white/80">{certificates.map((item) => <li key={item}>• {item}</li>)}</ul>
-              <a className="mt-3 inline-block underline" href="#">Download Resume</a>
-            </div>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="section-title">GitHub API Highlights</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <section className="space-y-8" data-reveal>
+          <SectionHeading eyebrow="Open Source" title="Live GitHub highlights" />
+          <div className="grid gap-4 md:grid-cols-2">
             {githubRepos.length > 0 ? (
               githubRepos.map((repo) => (
-                <article key={repo.id} className="glass rounded-2xl p-5">
-                  <h3 className="text-lg font-semibold">{repo.name}</h3>
-                  <p className="mt-2 text-sm text-white/75">⭐ {repo.stargazers_count} stars</p>
-                  <a className="mt-3 inline-block underline" href={repo.html_url} target="_blank" rel="noreferrer">
-                    View on GitHub
-                  </a>
+                <article key={repo.id} className="glass-panel rounded-3xl p-6">
+                  <h3 className="text-xl font-medium text-white">{repo.name}</h3>
+                  <p className="mt-2 text-sm text-slate-300">⭐ {repo.stargazers_count} stars</p>
+                  <a className="mt-4 inline-block text-cyan-100 underline underline-offset-4" href={repo.html_url} target="_blank" rel="noreferrer">View repository</a>
                 </article>
               ))
             ) : (
-              <p className="text-white/70">Live repository highlights unavailable at the moment.</p>
+              <p className="text-slate-300">GitHub highlights are temporarily unavailable.</p>
             )}
           </div>
         </section>
 
-        <section id="blog" className="glass rounded-3xl p-6">
-          <h2 className="section-title">Blog · Success Stories · Newsletter</h2>
-          <p className="mt-3 text-sm text-white/80">
-            Weekly practical insights on web growth, AI automation, and premium product execution.
-          </p>
-          <form className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <input
-              type="email"
-              required
-              placeholder="Enter your email"
-              className="w-full rounded-xl border border-white/20 bg-transparent px-4 py-2 outline-none"
-            />
-            <button className="rounded-xl bg-cyan-400/20 px-5 py-2">Join Newsletter</button>
-          </form>
+        <section className="space-y-4" data-reveal>
+          <SectionHeading eyebrow="FAQ" title="Answers before kickoff" />
+          {faq.map((entry) => (
+            <details key={entry.q} className="glass-panel rounded-2xl p-4 text-sm text-slate-200">
+              <summary className="cursor-pointer font-medium text-white">{entry.q}</summary>
+              <p className="mt-2 text-slate-300">{entry.a}</p>
+            </details>
+          ))}
+          <p className="text-xs text-slate-400">Why hire me: {whyHireMe.slice(0, 6).join(" · ")}</p>
         </section>
 
-        <section>
-          <h2 className="section-title">FAQ</h2>
-          <div className="mt-4 space-y-3">
-            {faq.map((item) => (
-              <details key={item.q} className="glass rounded-xl p-4">
-                <summary className="cursor-pointer font-medium">{item.q}</summary>
-                <p className="mt-2 text-sm text-white/75">{item.a}</p>
-              </details>
+        <section id="contact" className="glass-panel rounded-[2rem] p-8 sm:p-10" data-reveal>
+          <SectionHeading
+            eyebrow="Contact"
+            title="Ready to build something exceptional?"
+            description="Tell me your goals and I will send a strategy-first execution plan with timeline, stack, and deliverables."
+          />
+          <form className="mt-6 grid gap-3 sm:grid-cols-2" aria-label="Project inquiry form">
+            {contactFields.map((field) => (
+              <label key={field.id} className="sr-only" htmlFor={field.id}>
+                {field.label}
+              </label>
             ))}
-          </div>
-        </section>
-
-        <section id="contact" className="glass rounded-3xl p-6 sm:p-8">
-          <h2 className="section-title">Start Your Project</h2>
-          <p className="mt-3 text-sm text-white/80">Book a call, send your project details, and get a conversion-focused execution plan.</p>
-          <div className="mt-5 flex flex-wrap gap-3 text-sm">
-            <Link href="https://calendly.com" target="_blank" className="rounded-full border border-white/30 px-4 py-2">
-              Calendly Booking
-            </Link>
-            <button className="rounded-full border border-white/30 px-4 py-2">AI Chatbot Demo</button>
-          </div>
-          <form className="mt-6 grid gap-3 sm:grid-cols-2">
-            {[
-              "Project Type",
-              "Budget",
-              "Timeline",
-              "Business Name",
-              "Email",
-              "WhatsApp",
-            ].map((field) => (
+            {contactFields.map((field) => (
               <input
-                key={field}
+                key={field.id}
+                id={field.id}
                 required
-                placeholder={field}
-                className="rounded-xl border border-white/20 bg-transparent px-4 py-2 outline-none"
+                placeholder={field.label}
+                className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
               />
             ))}
             <textarea
               required
               placeholder="Message"
-              className="min-h-28 rounded-xl border border-white/20 bg-transparent px-4 py-2 outline-none sm:col-span-2"
+              className="min-h-28 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:col-span-2"
             />
-            <button className="rounded-xl bg-cyan-400/20 px-5 py-2 sm:col-span-2">Send Project Details</button>
+            <div className="flex flex-wrap gap-3 sm:col-span-2">
+              <button className="rounded-full border border-cyan-200/40 bg-cyan-300/15 px-5 py-2 text-sm text-white">Send Project Details</button>
+              <Link
+                href="https://calendly.com"
+                target="_blank"
+                className="rounded-full border border-white/30 px-5 py-2 text-sm text-slate-100"
+              >
+                Book on Calendly
+              </Link>
+            </div>
           </form>
         </section>
       </main>
@@ -346,7 +454,7 @@ export function PortfolioSite({ projects, githubRepos }: { projects: Project[]; 
         href="https://wa.me/0000000000"
         target="_blank"
         rel="noreferrer"
-        className="fixed bottom-5 right-5 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-black shadow-lg"
+        className="fixed bottom-5 right-5 z-40 rounded-full border border-emerald-200/40 bg-emerald-300/85 px-4 py-2 text-sm font-semibold text-slate-950 shadow-2xl transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
       >
         WhatsApp
       </a>

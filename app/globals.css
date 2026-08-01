@@ -1,59 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #05070e;
-  --foreground: #f8fbff;
-  --glass: rgba(255, 255, 255, 0.06);
-}
-
-.theme-light {
-  --background: #f5f8ff;
-  --foreground: #060b15;
-  --glass: rgba(10, 13, 20, 0.08);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --background: #050816;
+  --card: rgba(255, 255, 255, 0.08);
+  --foreground: #ffffff;
+  --text-secondary: #a0aec0;
+  --border: rgba(255, 255, 255, 0.15);
+  --primary: #00f5ff;
+  --accent: #7b61ff;
+  --success: #00ffb3;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
-  background: var(--background);
   color: var(--foreground);
+  background: var(--background);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
 }
 
-.glass {
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: var(--glass);
-  backdrop-filter: blur(18px);
+.mesh-bg {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(0, 245, 255, 0.16), transparent 38%),
+    radial-gradient(circle at 82% 10%, rgba(123, 97, 255, 0.24), transparent 30%),
+    radial-gradient(circle at 75% 78%, rgba(0, 255, 179, 0.1), transparent 42%),
+    linear-gradient(145deg, #050816 0%, #070d22 100%);
 }
 
-.section-title {
-  font-size: 1.7rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+.noise {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 0.4px, transparent 0.4px);
+  background-size: 4px 4px;
 }
 
-.animated-bg {
-  background: radial-gradient(circle at 10% 15%, #0f254c 0%, transparent 45%),
-    radial-gradient(circle at 80% 10%, #1c2f56 0%, transparent 35%),
-    radial-gradient(circle at 60% 70%, #09334a 0%, transparent 45%);
-  animation: glowShift 12s ease-in-out infinite alternate;
+.glass-panel {
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), var(--card));
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(20px);
 }
 
-@keyframes glowShift {
-  from {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  to {
-    transform: scale(1.06);
-    opacity: 1;
+.glass-chip {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.45rem 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
