@@ -11,6 +11,17 @@
   --success: #00ffb3;
 }
 
+[data-theme="light"] {
+  --background: #eef2ff;
+  --card: rgba(255, 255, 255, 0.72);
+  --foreground: #0b132b;
+  --text-secondary: #334155;
+  --border: rgba(15, 23, 42, 0.12);
+  --primary: #1d4ed8;
+  --accent: #6d28d9;
+  --success: #059669;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -55,6 +66,26 @@ body {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   padding: 0.45rem 0.8rem;
+}
+
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-track {
+  display: inline-block;
+  min-width: 100%;
+  animation: marquee 20s linear infinite;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
